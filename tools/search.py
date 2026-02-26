@@ -12,8 +12,8 @@ ddg_search = DuckDuckGoSearchResults()
 @tool
 def combined_web_search(query: str, num_results: int = 5) -> List[Dict[str, Any]]:
     """
-    Combines search results from DuckDuckGo and Google (via SerpAPI).
-    Requires SERPAPI_API_KEY environment variable for Google results.
+    Combines search results from DuckDuckGo and SearXNG.
+    Requires SEARXNG_URL environment variable for SearXNG results (defaults to http://localhost:8080).
     """
     results = []
     
@@ -37,37 +37,30 @@ def combined_web_search(query: str, num_results: int = 5) -> List[Dict[str, Any]
     except Exception as e:
         print(f"Warning: DuckDuckGo search failed: {e}")
         
-    # 2. Google Search (via SerpAPI)
+    # 2. SearXNG Search
     try:
-        serpapi_key = os.getenv("SERPAPI_API_KEY")
-        if serpapi_key:
-            from serpapi import GoogleSearch
-            search = GoogleSearch({
-                "q": query,
-                "api_key": serpapi_key,
-                "num": num_results
-            })
-            google_results = search.get_dict().get("organic_results", [])
-            
-            for res in google_results[:num_results]:
-                # Avoid duplicates by checking links
-                if not any(r["link"] == res.get("link") for r in results):
-                    results.append({
-                        "source": "Google",
-                        "title": res.get("title", ""),
-                        "link": res.get("link", ""),
-                        "snippet": res.get("snippet", "")
-                    })
-        else:
-            print("Notice: SERPAPI_API_KEY not found. Skipping Google search.")
+        from langchain_community.utilities import SearxSearchWrapper
+        searx_host = os.getenv("SEARXNG_URL", "http://localhost:8080")
+        searx = SearxSearchWrapper(searx_host=searx_host)
+        searx_results = searx.results(query, num_results=num_results)
+        
+        for res in searx_results:
+            # Avoid duplicates by checking links
+            if not any(r["link"] == res.get("link") for r in results):
+                results.append({
+                    "source": "SearXNG",
+                    "title": res.get("title", ""),
+                    "link": res.get("link", ""),
+                    "snippet": res.get("snippet", "")
+                })
     except Exception as e:
-        print(f"Warning: Google Search failed: {e}")
+        print(f"Warning: SearXNG Search failed. Ensure SEARXNG_URL is set or a local instance is running on port 8080: {e}")
         
     return results
 
 if __name__ == "__main__":
-    if not os.getenv("SERPAPI_API_KEY"):
-        print("Note: Set SERPAPI_API_KEY in your .env file to enable Google search results.")
+    if not os.getenv("SEARXNG_URL"):
+        print("Note: Set SEARXNG_URL in your .env file to configure SearXNG (defaults to http://localhost:8080).")
         
     print("Testing Combined Search...")
     test_res = combined_web_search.invoke({"query": "DNA origami nanoarrays", "num_results": 2})
