@@ -6,7 +6,8 @@ from typing import List
 
 # LLM imports
 from langchain_core.messages import SystemMessage, HumanMessage
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import create_tool_calling_agent, AgentExecutor
 from langchain_core.prompts import ChatPromptTemplate
 
@@ -45,9 +46,13 @@ def extract_research_domains() -> List[str]:
 
 def setup_agent():
     """Sets up the LangChain ReAct agent with the combined search tool."""
-    # We use ChatOpenAI which handles OpenAI, but with litellm we can route to Claude/Gemini etc
-    # Defaulting to gpt-4o or similar capability model
-    llm = ChatOpenAI(model="gpt-4o", temperature=0.2)
+    # Preferred model is Anthropic Claude if available, else Gemini
+    if os.getenv("ANTHROPIC_API_KEY"):
+        llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.2)
+    elif os.getenv("GOOGLE_API_KEY"):
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.2)
+    else:
+        raise ValueError("Please set either ANTHROPIC_API_KEY or GOOGLE_API_KEY in your .env file.")
     
     tools = [combined_web_search]
     
@@ -123,7 +128,7 @@ def run_research_pipeline():
             print(f"\\n❌ Error researching '{domain}': {e}")
             
 if __name__ == "__main__":
-    if not os.getenv("OPENAI_API_KEY"):
-        print("Warning: OPENAI_API_KEY environment variable is not set.")
+    if not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
+        print("Warning: Neither ANTHROPIC_API_KEY nor GOOGLE_API_KEY environment variables are set.")
     
     run_research_pipeline()
