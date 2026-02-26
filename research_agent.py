@@ -76,9 +76,13 @@ Ensure your output strictly follows this three-part structure so it can be parse
     agent = create_react_agent(llm, tools)
     return agent, system_prompt
 
-def run_research_pipeline():
+def run_research_pipeline(single_domain: str = None):
     """Main execution loop for iterating over domains and saving research artifacts."""
-    domains = extract_research_domains()
+    if single_domain:
+        domains = [single_domain]
+    else:
+        domains = extract_research_domains()
+        
     if not domains:
         print("No domains found to research. Exiting.")
         return
@@ -101,6 +105,15 @@ def run_research_pipeline():
                 HumanMessage(content=f"Research the following domain thoroughly: {domain}")
             ]})
             output_text = result["messages"][-1].content
+            
+            if isinstance(output_text, list):
+                text_parts = []
+                for block in output_text:
+                    if isinstance(block, dict) and "text" in block:
+                        text_parts.append(block["text"])
+                    elif isinstance(block, str):
+                        text_parts.append(block)
+                output_text = "".join(text_parts)
             
             print(f"\\n--- DEBUG ---\\n{output_text}\\n--- END DEBUG ---\\n")
             
@@ -137,4 +150,9 @@ if __name__ == "__main__":
     if not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
         print("Warning: Neither ANTHROPIC_API_KEY nor GOOGLE_API_KEY environment variables are set.")
     
-    run_research_pipeline()
+    import sys
+    if len(sys.argv) > 1:
+        query = " ".join(sys.argv[1:])
+        run_research_pipeline(single_domain=query)
+    else:
+        run_research_pipeline()

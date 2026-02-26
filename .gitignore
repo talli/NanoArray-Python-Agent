@@ -1,0 +1,29 @@
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment configurations
+.python-version
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# AI Agent Specifics
+.claude/
+.gemini/
+
+# Project Generated Output
+findings/
+sources/
+summaries/
+__pycache__/
+*.pyc
+main.py
