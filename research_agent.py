@@ -8,8 +8,7 @@ from typing import List
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.agents import create_tool_calling_agent, AgentExecutor
-from langchain_core.prompts import ChatPromptTemplate
+from langgraph.prebuilt import create_react_agent
 
 # Local tools
 from tools.search import combined_web_search
@@ -56,8 +55,7 @@ def setup_agent():
     
     tools = [combined_web_search]
     
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an expert autonomous research agent for a hyper-multiplexed single-molecule detection platform.
+    system_prompt = """You are an expert autonomous research agent for a hyper-multiplexed single-molecule detection platform.
 You are tasked with researching specific domains regarding DNA origami, EO-FLIM, ATTO dyes, SMILES nanoparticles, and immunopeptidomics.
 
 Instructions:
@@ -73,14 +71,10 @@ Instructions:
    ===CUT===
    [Summary/Comparison Content]
 
-Ensure your output strictly follows this three-part structure so it can be parsed and written to the correct directories."""),
-        ("human", "Research the following domain thoroughly: {input}"),
-        ("placeholder", "{agent_scratchpad}"),
-    ])
+Ensure your output strictly follows this three-part structure so it can be parsed and written to the correct directories."""
     
-    agent = create_tool_calling_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True)
-    return agent_executor
+    agent = create_react_agent(llm, tools)
+    return agent, system_prompt
 
 def run_research_pipeline():
     """Main execution loop for iterating over domains and saving research artifacts."""
@@ -90,7 +84,9 @@ def run_research_pipeline():
         return
         
     print(f"Found {len(domains)} research domains. Initializing agent...")
-    agent = setup_agent()
+    agent, system_prompt = setup_agent()
+    
+    from langchain_core.messages import SystemMessage, HumanMessage
     
     for domain in domains:
         print(f"\\n{'='*50}")
@@ -98,8 +94,12 @@ def run_research_pipeline():
         print(f"{'='*50}\\n")
         
         try:
-            result = agent.invoke({"input": domain})
-            output_text = result.get("output", "")
+            # LangGraph inputs a list of messages. Pass the system prompt first.
+            result = agent.invoke({"messages": [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=f"Research the following domain thoroughly: {domain}")
+            ]})
+            output_text = result["messages"][-1].content
             
             parts = output_text.split("===CUT===")
             if len(parts) == 3:
