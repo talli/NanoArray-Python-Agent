@@ -49,7 +49,7 @@ def setup_agent():
     if os.getenv("ANTHROPIC_API_KEY"):
         llm = ChatAnthropic(model="claude-3-5-sonnet-20241022", temperature=0.2)
     elif os.getenv("GOOGLE_API_KEY"):
-        llm = ChatGoogleGenerativeAI(model="gemini-2.5-pro", temperature=0.2)
+        llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
     else:
         raise ValueError("Please set either ANTHROPIC_API_KEY or GOOGLE_API_KEY in your .env file.")
     
@@ -87,6 +87,7 @@ def run_research_pipeline():
     agent, system_prompt = setup_agent()
     
     from langchain_core.messages import SystemMessage, HumanMessage
+    import time
     
     for domain in domains:
         print(f"\\n{'='*50}")
@@ -100,6 +101,8 @@ def run_research_pipeline():
                 HumanMessage(content=f"Research the following domain thoroughly: {domain}")
             ]})
             output_text = result["messages"][-1].content
+            
+            print(f"\\n--- DEBUG ---\\n{output_text}\\n--- END DEBUG ---\\n")
             
             parts = output_text.split("===CUT===")
             if len(parts) == 3:
@@ -126,6 +129,9 @@ def run_research_pipeline():
                 
         except Exception as e:
             print(f"\\n❌ Error researching '{domain}': {e}")
+            
+        # Sleep to avoid rate limits on free-tier APIs
+        time.sleep(10)
             
 if __name__ == "__main__":
     if not os.getenv("ANTHROPIC_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
